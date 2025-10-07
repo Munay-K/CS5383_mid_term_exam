@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/biblioteca.dir/link.d CMakeFiles/biblioteca.dir/src/main.cpp.o -o biblioteca  libbiblioteca_lib.a

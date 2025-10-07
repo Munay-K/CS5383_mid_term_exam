@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/tests.dir/link.d CMakeFiles/tests.dir/tests/test_lib.cpp.o -o tests  libbiblioteca_lib.a /usr/lib/libCatch2Main.a /usr/lib/libCatch2.a
