@@ -15,12 +15,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc g++ cmake gcovr
 
+      - name: Clean previous build (defensive)
+        run: rm -rf build
+
       - name: Configure (coverage + compile_commands.json)
         run: |
           cmake -S . -B build \
             -DCMAKE_CXX_FLAGS="--coverage -O0" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          # Si tu CMake ≥3.24 puedes usar: cmake -S . -B build --fresh ...
 
       - name: Build
         run: cmake --build build -j2
@@ -35,4 +39,5 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}   # ej. http://tu-servidor:9000
+
