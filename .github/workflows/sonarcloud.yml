@@ -1,0 +1,36 @@
+name: SonarCloud
+on:
+  push: { branches: [ main ] }
+  pull_request: { branches: [ main ] }
+
+jobs:
+  build-and-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ cmake gcovr
+
+      - name: Configure (coverage flags)
+        run: cmake -S . -B build -DCMAKE_CXX_FLAGS="--coverage -O0" -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build -j2
+
+      - name: Run tests
+        run: ./build/tests
+
+      - name: Generate coverage (gcovr → SonarQube XML)
+        run: gcovr -r . --exclude 'tests' --sonarqube coverage.xml
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-cloud-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+
