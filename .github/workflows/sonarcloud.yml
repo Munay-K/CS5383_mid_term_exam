@@ -18,20 +18,34 @@ jobs:
   py-analyze:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with: { python-version: '3.x' }
 
-      - uses: actions/cache@v4
+      - name: Cache pip
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: pip-${{ runner.os }}-${{ hashFiles('python/requirements.txt', 'python/pyproject.toml') }}
           restore-keys: pip-${{ runner.os }}-
 
-      - run: pip install -r python/requirements.txt
-      - run: pip install -e python
+      - name: Install deps
+        run: |
+          pip install -r python/requirements.txt
+          pip install -e python
+
+      # sanity check: el paquete debe importar
+      - name: Verify package import
+        run: |
+          python - <<'PY'
+          import biblioteca_py, sys
+          print("OK import:", getattr(biblioteca_py, "__file__", None))
+          sys.exit(0)
+          PY
 
       - name: Run tests (pytest + coverage XML)
         run: |
