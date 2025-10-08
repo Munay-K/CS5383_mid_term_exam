@@ -1,71 +1,46 @@
-name: SonarCloud
+name: SonarQube (Python)
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'python/**'
+      - 'sonar-project.properties'
+      - '.github/workflows/sonarqube-python.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'python/**'
+      - 'sonar-project.properties'
+      - '.github/workflows/sonarqube-python.yml'
 
 jobs:
-  build-and-analyze:
+  py-analyze:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # necesario para análisis correcto
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
 
-      # ---- gcovr rápido por pip + cache ----
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.x' }
 
-      - name: Cache pip
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ runner.os }}-gcovr
+          key: pip-${{ runner.os }}-${{ hashFiles('python/requirements.txt', 'python/pyproject.toml') }}
           restore-keys: pip-${{ runner.os }}-
 
-      - name: Install gcovr
-        run: pip install gcovr
+      - run: pip install -r python/requirements.txt
+      - run: pip install -e python
 
-      # (Opcional) cachea dependencias de CMake FetchContent (p.ej., Catch2)
-      - name: Cache CMake deps
-        uses: actions/cache@v4
-        with:
-          path: build/_deps
-          key: cmake-deps-${{ hashFiles('CMakeLists.txt', 'include/**', 'src/**', 'tests/**') }}
-
-      - name: Clean build
-        run: rm -rf build
-
-      - name: Configure (Debug + compile_commands.json)
+      - name: Run tests (pytest + coverage XML)
         run: |
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          pytest -q python/tests \
+            --cov=biblioteca_py \
+            --cov-report=xml:coverage.xml
 
-      - name: Build
-        run: cmake --build build -j2
-
-      - name: Run tests
-        run: ./build/tests
-
-      - name: Generate coverage (gcovr → SonarQube XML)
-        run: |
-          gcovr \
-            --root . \
-            --object-directory build \
-            --filter '^(./)?(src|include)/' \
-            --exclude 'tests' \
-            --exclude 'build/_deps' \
-            --sonarqube coverage.xml
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
+      - name: SonarQube Scan (self-hosted)
+        uses: SonarSource/sonarqube-scan-action@v2
         env:
-          SONAR_TOKEN:  ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
