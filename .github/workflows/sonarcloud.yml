@@ -1,4 +1,5 @@
 name: SonarCloud
+
 on:
   push: { branches: [ main ] }
   pull_request: { branches: [ main ] }
@@ -6,25 +7,42 @@ on:
 jobs:
   build-and-analyze:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Install deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc g++ cmake gcovr
+      # Cache de deps de CMake (Catch2 via FetchContent)
+      - name: Cache _deps
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-${{ hashFiles('CMakeLists.txt', 'include/**', 'src/**', 'tests/**') }}
 
-      - name: Clean previous build (defensive)
+      # Python + gcovr (rápido) + cache pip
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with: { python-version: '3.x' }
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Install gcovr
+        run: pip install gcovr
+
+      - name: Clean build
         run: rm -rf build
 
-      - name: Configure (coverage + compile_commands.json)
+      - name: Configure (Debug + compile_commands.json)
         run: |
           cmake -S . -B build \
-            -DCMAKE_CXX_FLAGS="--coverage -O0" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          # Si tu CMake ≥3.24 puedes usar: cmake -S . -B build --fresh ...
 
       - name: Build
         run: cmake --build build -j2
@@ -33,11 +51,18 @@ jobs:
         run: ./build/tests
 
       - name: Generate coverage (gcovr → SonarQube XML)
-        run: gcovr -r . --exclude 'tests' --sonarqube coverage.xml
+        run: |
+          gcovr \
+            --root . \
+            --object-directory build \
+            --filter '^(./)?(src|include)/' \
+            --exclude 'tests' \
+            --exclude 'build/_deps' \
+            --sonarqube coverage.xml
+          ls -lh coverage.xml
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}   # ej. http://tu-servidor:9000
-
